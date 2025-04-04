@@ -14,7 +14,14 @@ PERPLEXITY_MODEL_NAME = "sonar"  # Perplexity model to use
 API_REQUEST_DELAY = 1  # Seconds to wait between API calls (adjust if needed for rate limits)
 MAX_WORKERS = 32  # Maximum number of threads for parallel processing
 CACHE_DIR = os.path.join(os.path.expanduser("~"), ".drcleaner_cache")  # Cache directory
-APA_PROMPT_TEMPLATE = "Visit this web link and generate an appropriate APA style reference line for it in markdown format: {}"
+APA_PROMPT_TEMPLATE = """
+Visit this web link and generate an appropriate APA style reference line for it
+in markdown format: {}. Respond only with the APA reference in markdown format, enclosed in triple square braces.
+
+For example, the following might be an APA reference for a Reddit user comment:
+
+[[[u/skepticalscience. (2020, June 15). Comment on "Why is the Arctic warming faster than the rest of the planet?" [Comment]. Reddit. https://www.reddit.com/r/askscience/comments/hb2z0n/why_is_the_arctic_warming_faster_than_the_rest/ftd2n3z/]]]
+"""
 SOURCE_PATTERN = re.compile(r'\(\[([^\]]+)\]\(([^\)]+)\)\)') # Pattern: ([Display Text](URL))
 
 # --- Logger Setup ---
