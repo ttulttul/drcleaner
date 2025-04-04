@@ -50,10 +50,12 @@ class TestDRCleaner(unittest.TestCase):
             else:
                 self.assertEqual(len(matches), 0, f"Should not match: {text}")
     
-    @patch('requests.post')
-    def test_get_apa_citation(self, mock_post):
+    def test_get_apa_citation(self):
         """Test the get_apa_citation function with a mocked API response."""
-        # Mock the API response
+        # Save the original function to restore it later
+        original_call_api = drcleaner._call_perplexity_api_cached
+        
+        # Create a mock response
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -65,20 +67,27 @@ class TestDRCleaner(unittest.TestCase):
                 }
             ]
         }
-        mock_post.return_value = mock_response
         
-        # Call the function
-        result = drcleaner.get_apa_citation(self.test_api_key, "https://example.com")
+        # Define a replacement function that returns our mock
+        def mock_api_call(api_key, url, prompt):
+            self.assertEqual(api_key, self.test_api_key)
+            self.assertEqual(url, "https://example.com")
+            self.assertIn("https://example.com", prompt)
+            return mock_response
         
-        # Verify the result
-        self.assertEqual(result, 'Author, A. (2023). Test Title. Example.com. https://example.com')
-        
-        # Verify the API was called with the correct parameters
-        mock_post.assert_called_once()
-        args, kwargs = mock_post.call_args
-        self.assertEqual(args[0], "https://api.perplexity.ai/chat/completions")
-        self.assertEqual(kwargs['headers']['Authorization'], f"Bearer {self.test_api_key}")
-        self.assertIn("https://example.com", kwargs['json']['messages'][1]['content'])
+        try:
+            # Replace the cached function with our mock
+            drcleaner._call_perplexity_api_cached = mock_api_call
+            
+            # Call the function
+            result = drcleaner.get_apa_citation(self.test_api_key, "https://example.com")
+            
+            # Verify the result
+            self.assertEqual(result, 'Author, A. (2023). Test Title. Example.com. https://example.com')
+            
+        finally:
+            # Restore the original function
+            drcleaner._call_perplexity_api_cached = original_call_api
     
     @patch('drcleaner.get_apa_citation')
     def test_reformat_markdown(self, mock_get_apa):
