@@ -6,15 +6,22 @@ import time
 import logging
 from collections import OrderedDict
 from dotenv import load_dotenv
+import joblib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # --- Configuration ---
 PERPLEXITY_MODEL_NAME = "sonar"  # Perplexity model to use
 API_REQUEST_DELAY = 1  # Seconds to wait between API calls (adjust if needed for rate limits)
+MAX_WORKERS = 32  # Maximum number of threads for parallel processing
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".drcleaner_cache")  # Cache directory
 APA_PROMPT_TEMPLATE = "Visit this web link and generate an appropriate APA style reference line for it in markdown format: {}"
 SOURCE_PATTERN = re.compile(r'\(\[([^\]]+)\]\(([^\)]+)\)\)') # Pattern: ([Display Text](URL))
 
 # --- Logger Setup ---
 logger = logging.getLogger(__name__)
+
+# --- Cache Setup ---
+memory = joblib.Memory(CACHE_DIR, verbose=0)
 
 # --- Helper Functions ---
 
@@ -25,6 +32,43 @@ def configure_perplexity(api_key):
         return None
     return api_key
 
+@memory.cache
+def _call_perplexity_api(api_key, url, prompt):
+    """Makes the actual API call to Perplexity - cached version."""
+    perplexity_url = "https://api.perplexity.ai/chat/completions"
+    
+    payload = {
+        "model": PERPLEXITY_MODEL_NAME,
+        "messages": [
+            {
+                "role": "system",
+                "content": "Generate accurate APA style references. Be precise and concise."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.2,
+        "top_p": 0.9,
+        "search_domain_filters": ["all"],
+        "return_images": False,
+        "return_related_questions": False,
+        "top_k": 0,
+        "stream": False,
+        "frequency_penalty": 1,
+        "web_search_options": {"search_context_size": "high"}
+    }
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    response = requests.post(perplexity_url, json=payload, headers=headers)
+    time.sleep(API_REQUEST_DELAY)  # Prevent hitting rate limits
+    return response
+
 def get_apa_citation(api_key, url):
     """Calls Perplexity API to get an APA citation for a URL."""
     if not api_key:
@@ -34,37 +78,7 @@ def get_apa_citation(api_key, url):
     logger.info(f"  Generating APA for: {url[:60]}...")
     
     try:
-        perplexity_url = "https://api.perplexity.ai/chat/completions"
-        
-        payload = {
-            "model": PERPLEXITY_MODEL_NAME,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Generate accurate APA style references. Be precise and concise."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": 0.2,
-            "top_p": 0.9,
-            "search_domain_filters": ["all"],
-            "return_images": False,
-            "return_related_questions": False,
-            "top_k": 0,
-            "stream": False,
-            "frequency_penalty": 1,
-            "web_search_options": {"search_context_size": "high"}
-        }
-        
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        response = requests.post(perplexity_url, json=payload, headers=headers)
+        response = _call_perplexity_api(api_key, url, prompt)
         
         if response.status_code == 200:
             response_data = response.json()
@@ -94,8 +108,6 @@ def get_apa_citation(api_key, url):
     except Exception as e:
         logger.error(f"    Failed to get APA citation for {url}: {e}")
         return f"[APA generation error for URL: {url}]"
-    finally:
-        time.sleep(API_REQUEST_DELAY) # Prevent hitting rate limits
 
 def reformat_markdown(input_filename, output_filename, api_key):
     """Reads markdown, extracts sources, generates citations, and reformats."""
@@ -138,13 +150,30 @@ def reformat_markdown(input_filename, output_filename, api_key):
 
     logger.info(f"Found {len(unique_sources)} unique URLs in {input_filename}. Generating APA citations via Perplexity API...")
 
-    # Assign numbers and generate APA citations for unique URLs
+    # Assign numbers to URLs
     current_number = 1
     for url in unique_sources.keys():
         unique_sources[url]['number'] = current_number
-        apa_citation = get_apa_citation(perplexity_api_key, url)
-        unique_sources[url]['apa'] = apa_citation if apa_citation else f"[Failed to generate APA for {url}]"
         current_number += 1
+    
+    # Generate APA citations for unique URLs in parallel
+    logger.info(f"Generating APA citations in parallel using up to {MAX_WORKERS} threads...")
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Start the load operations and mark each future with its URL
+        future_to_url = {
+            executor.submit(get_apa_citation, perplexity_api_key, url): url 
+            for url in unique_sources.keys()
+        }
+        
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                apa_citation = future.result()
+                unique_sources[url]['apa'] = apa_citation if apa_citation else f"[Failed to generate APA for {url}]"
+                logger.info(f"  Completed APA for: {url[:60]}...")
+            except Exception as exc:
+                logger.error(f"  Error processing {url}: {exc}")
+                unique_sources[url]['apa'] = f"[Failed to generate APA for {url}]"
 
     logger.info(f"APA citation generation complete for {input_filename}.")
     logger.info(f"Replacing inline references in {input_filename}...")
