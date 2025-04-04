@@ -1,5 +1,5 @@
 import re
-import google.generativeai as genai
+import requests
 import os
 import argparse
 import time
@@ -7,7 +7,7 @@ import logging
 from collections import OrderedDict
 
 # --- Configuration ---
-GEMINI_MODEL_NAME = "gemini-1.5-pro-latest"  # Or specific model like "gemini-2.5-pro" when available
+PERPLEXITY_MODEL_NAME = "sonar"  # Perplexity model to use
 API_REQUEST_DELAY = 1  # Seconds to wait between API calls (adjust if needed for rate limits)
 APA_PROMPT_TEMPLATE = "Visit this web link and generate an appropriate APA style reference line for it in markdown format: {}"
 SOURCE_PATTERN = re.compile(r'\(\[([^\]]+)\]\(([^\)]+)\)\)') # Pattern: ([Display Text](URL))
@@ -17,54 +17,70 @@ logger = logging.getLogger(__name__)
 
 # --- Helper Functions ---
 
-def configure_gemini(api_key):
-    """Configures the Gemini API client."""
-    try:
-        genai.configure(api_key=api_key)
-        return genai.GenerativeModel(GEMINI_MODEL_NAME)
-    except Exception as e:
-        logger.error(f"Error configuring Gemini API: {e}")
+def configure_perplexity(api_key):
+    """Configures the Perplexity API client."""
+    if not api_key:
+        logger.error("Perplexity API key not provided")
         return None
+    return api_key
 
-def get_apa_citation(model, url):
-    """Calls Gemini API to get an APA citation for a URL."""
-    if not model:
-        return "[Gemini API not configured]"
+def get_apa_citation(api_key, url):
+    """Calls Perplexity API to get an APA citation for a URL."""
+    if not api_key:
+        return "[Perplexity API not configured]"
+    
     prompt = APA_PROMPT_TEMPLATE.format(url)
     logger.info(f"  Generating APA for: {url[:60]}...")
+    
     try:
-        # Configuration for web page access (if needed by the model/API)
-        # Note: As of late 2023/early 2024, direct web browsing might be implicit
-        # or require specific tools/function calling setup depending on the API version.
-        # This basic call assumes the model can access the URL based on the prompt.
-        safety_settings = [ # Adjust safety settings if needed
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-        ]
-
-        response = model.generate_content(
-            prompt,
-            safety_settings=safety_settings
-            # Add generation_config or tool_config if needed for web browsing
-            )
-
-        # Handle potential blocks or errors in response
-        if response.parts:
-             citation = response.text.strip()
-             # Basic cleanup: remove potential markdown list markers if Gemini adds them
-             if citation.startswith(("- ", "* ")):
-                 citation = citation[2:]
-             if citation and citation[0].isdigit() and citation[1] == '.' and citation[2] == ' ':
-                 citation = citation[3:] # Remove "1. " style numbering if present
-             return citation
-        elif response.prompt_feedback and response.prompt_feedback.block_reason:
-             logger.warning(f"    Citation generation blocked for {url}. Reason: {response.prompt_feedback.block_reason}")
-             return f"[APA generation blocked for URL: {url}]"
+        perplexity_url = "https://api.perplexity.ai/chat/completions"
+        
+        payload = {
+            "model": PERPLEXITY_MODEL_NAME,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Generate accurate APA style references. Be precise and concise."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "search_domain_filter": ["<any>"],
+            "return_images": False,
+            "return_related_questions": False,
+            "top_k": 0,
+            "stream": False,
+            "frequency_penalty": 1,
+            "web_search_options": {"search_context_size": "high"}
+        }
+        
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.post(perplexity_url, json=payload, headers=headers)
+        
+        if response.status_code == 200:
+            response_data = response.json()
+            if 'choices' in response_data and len(response_data['choices']) > 0:
+                citation = response_data['choices'][0]['message']['content'].strip()
+                # Basic cleanup: remove potential markdown list markers
+                if citation.startswith(("- ", "* ")):
+                    citation = citation[2:]
+                if citation and citation[0].isdigit() and citation[1] == '.' and citation[2] == ' ':
+                    citation = citation[3:] # Remove "1. " style numbering if present
+                return citation
+            else:
+                logger.warning(f"    Unexpected response format from Perplexity API for {url}")
+                return f"[APA generation failed for URL: {url}]"
         else:
-             logger.warning(f"    Received empty or unexpected response for {url}. Full response: {response}")
-             return f"[APA generation failed for URL: {url}]"
+            logger.warning(f"    Perplexity API returned status code {response.status_code} for {url}")
+            return f"[APA generation failed for URL: {url} - API error {response.status_code}]"
 
     except Exception as e:
         logger.error(f"    Failed to get APA citation for {url}: {e}")
@@ -77,9 +93,9 @@ def reformat_markdown(input_filename, output_filename, api_key):
 
     logger.info(f"Processing {input_filename}...")
 
-    model = configure_gemini(api_key)
-    if not model:
-        logger.error("Exiting due to Gemini API configuration error.")
+    perplexity_api_key = configure_perplexity(api_key)
+    if not perplexity_api_key:
+        logger.error("Exiting due to Perplexity API configuration error.")
         return
 
     try:
@@ -117,7 +133,7 @@ def reformat_markdown(input_filename, output_filename, api_key):
     current_number = 1
     for url in unique_sources.keys():
         unique_sources[url]['number'] = current_number
-        apa_citation = get_apa_citation(model, url)
+        apa_citation = get_apa_citation(perplexity_api_key, url)
         unique_sources[url]['apa'] = apa_citation if apa_citation else f"[Failed to generate APA for {url}]"
         current_number += 1
 
@@ -180,7 +196,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Reformat Markdown document to consolidate sources using Gemini API.")
     parser.add_argument("input_file", help="Path to the input Markdown file.")
     parser.add_argument("output_file", help="Path to save the reformatted Markdown file.")
-    parser.add_argument("-k", "--api-key", help="Gemini API Key (optional, uses GEMINI_API_KEY environment variable if not provided)", default=None)
+    parser.add_argument("-k", "--api-key", help="Perplexity API Key (optional, uses PERPLEXITY_API_KEY environment variable if not provided)", default=None)
     parser.add_argument("-v", "--verbose", help="Increase output verbosity (INFO level)", action="store_true")
     args = parser.parse_args()
 
@@ -188,10 +204,10 @@ if __name__ == "__main__":
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s') # Simpler format for CLI
 
-    api_key = args.api_key or os.getenv("GEMINI_API_KEY")
+    api_key = args.api_key or os.getenv("PERPLEXITY_API_KEY")
 
     if not api_key:
-        logger.error("Gemini API Key not found.")
-        logger.error("Please provide it using the --api-key argument or set the GEMINI_API_KEY environment variable.")
+        logger.error("Perplexity API Key not found.")
+        logger.error("Please provide it using the --api-key argument or set the PERPLEXITY_API_KEY environment variable.")
     else:
         reformat_markdown(args.input_file, args.output_file, api_key)
