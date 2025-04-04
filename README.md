@@ -1,6 +1,6 @@
 # DR Cleaner
 
-A tool for reformatting Markdown documents to consolidate sources and generate proper APA citations using the Perplexity AI API.
+A tool for reformatting Markdown documents to consolidate sources and generate proper APA citations using the Perplexity AI API with structured JSON outputs.
 
 ## Overview
 
@@ -9,7 +9,8 @@ DR Cleaner (where "DR" refers to OpenAI's "Deep Research" feature) scans Markdow
 ## Features
 
 - Extracts source references from Markdown documents
-- Generates APA citations using Perplexity AI
+- Generates structured APA citations using Perplexity AI's JSON schema response format
+- Uses Pydantic models to validate and parse citation data
 - Replaces inline references with numbered links
 - Creates a consolidated Sources section
 - Handles rate limiting for API calls
@@ -19,6 +20,7 @@ DR Cleaner (where "DR" refers to OpenAI's "Deep Research" feature) scans Markdow
 - Python 3.12 or higher
 - Perplexity AI API key (required for API calls)
 - python-dotenv (for loading environment variables from .env file)
+- pydantic (for structured data validation and parsing)
 
 ## Installation
 
@@ -98,6 +100,16 @@ Here's another paragraph with a different source [2](#source-2).
 
 <a id="source-2"></a>2. Author, B. (2023). Another Source. Example.org. https://example.org
 ```
+
+## How It Works
+
+DR Cleaner uses Perplexity AI's structured output capabilities to generate reliable APA citations:
+
+1. For each URL, the tool sends a request to Perplexity AI with a JSON schema
+2. The schema defines the expected structure of an APA citation (author, year, title, etc.)
+3. Perplexity AI returns a structured JSON response that conforms to the schema
+4. The tool parses this structured data using Pydantic models
+5. This approach ensures consistent, well-formatted citations without needing to parse free-form text
 
 ## Running Tests
 
