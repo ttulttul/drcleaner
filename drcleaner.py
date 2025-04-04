@@ -199,7 +199,7 @@ def reformat_markdown(input_filename, output_filename, api_key):
         url = match.group(2)
         if url in unique_sources:
             number = unique_sources[url]['number']
-            citation_link = f'[[{number}]](#source-{number})'
+            citation_link = f'[{number}](#source-{number})'
             # Replace the specific match span
             start, end = match.span()
             modified_content = modified_content[:start] + citation_link + modified_content[end:]
