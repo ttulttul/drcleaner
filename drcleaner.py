@@ -95,6 +95,10 @@ def get_apa_citation(api_key, url):
                 triple_bracket_match = re.search(r'\[\[\[(.*?)\]\]\]', citation, re.DOTALL)
                 if triple_bracket_match:
                     citation = triple_bracket_match.group(1).strip()
+                else:
+                    logger.warning(f"    Warning: Response for {url} did not contain triple square brackets as requested.")
+                    logger.warning(f"    Using full response as citation. This may need manual review.")
+                
                 # Basic cleanup: remove potential markdown list markers
                 if citation.startswith(("- ", "* ")):
                     citation = citation[2:]
