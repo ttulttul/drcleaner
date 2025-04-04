@@ -3,10 +3,10 @@
 # Exit on error
 set -e
 
-echo "Creating Python 3.13 virtual environment..."
+echo "Creating Python 3.12 virtual environment..."
 
 # Create a virtual environment
-python3.13 -m venv venv
+python3.12 -m venv venv
 
 # Activate the virtual environment
 source venv/bin/activate
