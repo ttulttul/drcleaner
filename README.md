@@ -17,7 +17,8 @@ DR Cleaner scans Markdown documents for source references in the format `([Text]
 ## Requirements
 
 - Python 3.12 or higher
-- Perplexity AI API key
+- Perplexity AI API key (required for API calls)
+- python-dotenv (for loading environment variables from .env file)
 
 ## Installation
 
@@ -63,6 +64,8 @@ Then simply run:
 python drcleaner.py input.md output.md
 ```
 
+Note: The PERPLEXITY_API_KEY is required for generating APA citations. The script uses the python-dotenv package to load this key from your environment or .env file.
+
 ### Command Line Arguments
 
 - `input_file`: Path to the input Markdown file
@@ -95,6 +98,23 @@ Here's another paragraph with a different source [2](#source-2).
 
 <a id="source-2"></a>2. Author, B. (2023). Another Source. Example.org. https://example.org
 ```
+
+## Running Tests
+
+To run all tests:
+
+```bash
+python tests/run_tests.py
+```
+
+To run a specific test file:
+
+```bash
+python -m unittest tests/test_drcleaner.py
+python -m unittest tests/test_integration.py
+```
+
+Note: Integration tests require a valid PERPLEXITY_API_KEY to be set in your environment or .env file. Tests will be skipped if the API key is not available.
 
 ## License
 
