@@ -4,7 +4,7 @@ A tool for reformatting Markdown documents to consolidate sources and generate p
 
 ## Overview
 
-DR Cleaner scans Markdown documents for source references in the format `([Text](URL))`, extracts unique URLs, generates APA citations for each URL using the Perplexity AI API, and reformats the document with numbered references and a consolidated Sources section.
+DR Cleaner (where "DR" refers to OpenAI's "Deep Research" feature) scans Markdown documents for source references in the format `([Text](URL))`, extracts unique URLs, generates APA citations for each URL using the Perplexity AI API, and reformats the document with numbered references and a consolidated Sources section.
 
 ## Features
 
