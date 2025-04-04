@@ -39,9 +39,8 @@ def configure_perplexity(api_key):
         return None
     return api_key
 
-@memory.cache
 def _call_perplexity_api(api_key, url, prompt):
-    """Makes the actual API call to Perplexity - cached version."""
+    """Makes the actual API call to Perplexity."""
     perplexity_url = "https://api.perplexity.ai/chat/completions"
     
     payload = {
@@ -76,6 +75,9 @@ def _call_perplexity_api(api_key, url, prompt):
     time.sleep(API_REQUEST_DELAY)  # Prevent hitting rate limits
     return response
 
+# Create a cached version that can be used when not testing
+_call_perplexity_api_cached = memory.cache(_call_perplexity_api)
+
 def get_apa_citation(api_key, url):
     """Calls Perplexity API to get an APA citation for a URL."""
     if not api_key:
@@ -85,7 +87,7 @@ def get_apa_citation(api_key, url):
     logger.info(f"  Generating APA for: {url[:60]}...")
     
     try:
-        response = _call_perplexity_api(api_key, url, prompt)
+        response = _call_perplexity_api_cached(api_key, url, prompt)
         
         if response.status_code == 200:
             response_data = response.json()
