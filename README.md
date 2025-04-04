@@ -51,6 +51,18 @@ export PERPLEXITY_API_KEY=your_perplexity_api_key
 python drcleaner.py input.md output.md
 ```
 
+Alternatively, you can create a `.env` file in the project root with your API key:
+
+```
+PERPLEXITY_API_KEY=your_perplexity_api_key
+```
+
+Then simply run:
+
+```bash
+python drcleaner.py input.md output.md
+```
+
 ### Command Line Arguments
 
 - `input_file`: Path to the input Markdown file

@@ -5,6 +5,7 @@ import argparse
 import time
 import logging
 from collections import OrderedDict
+from dotenv import load_dotenv
 
 # --- Configuration ---
 PERPLEXITY_MODEL_NAME = "sonar"  # Perplexity model to use
@@ -200,6 +201,9 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", help="Increase output verbosity (INFO level)", action="store_true")
     args = parser.parse_args()
 
+    # Load environment variables from .env file if it exists
+    load_dotenv()
+    
     # Configure logging
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s') # Simpler format for CLI

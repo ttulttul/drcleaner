@@ -4,9 +4,13 @@ import sys
 import tempfile
 import subprocess
 import shutil
+from dotenv import load_dotenv
 
 # Add parent directory to path to import drcleaner
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Load environment variables from .env file
+load_dotenv()
 
 class TestDRCleanerIntegration(unittest.TestCase):
     """Integration tests for the DR Cleaner script."""

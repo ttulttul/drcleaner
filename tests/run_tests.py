@@ -7,6 +7,10 @@ Run this script to execute all tests in the tests directory.
 import unittest
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 if __name__ == '__main__':
     # Add parent directory to path

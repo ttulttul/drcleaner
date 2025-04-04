@@ -3,10 +3,14 @@ import os
 import sys
 import tempfile
 from unittest.mock import patch, MagicMock
+from dotenv import load_dotenv
 
 # Add parent directory to path to import drcleaner
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import drcleaner
+
+# Load environment variables from .env file
+load_dotenv()
 
 class TestDRCleaner(unittest.TestCase):
     """Test cases for the DR Cleaner script."""
