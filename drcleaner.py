@@ -50,7 +50,7 @@ def get_apa_citation(api_key, url):
             ],
             "temperature": 0.2,
             "top_p": 0.9,
-            "search_domain_filter": ["<any>"],
+            "search_domain_filters": ["all"],
             "return_images": False,
             "return_related_questions": False,
             "top_k": 0,
