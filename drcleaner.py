@@ -56,7 +56,7 @@ def _call_perplexity_api(api_key, url, prompt):
                 "content": prompt
             }
         ],
-        "temperature": 0.2,
+        "temperature": 0.0,
         "top_p": 0.9,
         "search_domain_filters": ["all"],
         "return_images": False,
