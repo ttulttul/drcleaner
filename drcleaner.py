@@ -91,6 +91,10 @@ def get_apa_citation(api_key, url):
             response_data = response.json()
             if 'choices' in response_data and len(response_data['choices']) > 0:
                 citation = response_data['choices'][0]['message']['content'].strip()
+                # Extract content from triple square brackets if present
+                triple_bracket_match = re.search(r'\[\[\[(.*?)\]\]\]', citation, re.DOTALL)
+                if triple_bracket_match:
+                    citation = triple_bracket_match.group(1).strip()
                 # Basic cleanup: remove potential markdown list markers
                 if citation.startswith(("- ", "* ")):
                     citation = citation[2:]
