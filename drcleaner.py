@@ -60,14 +60,14 @@ def get_apa_citation(model, url):
                  citation = citation[3:] # Remove "1. " style numbering if present
              return citation
         elif response.prompt_feedback and response.prompt_feedback.block_reason:
-             print(f"    WARN: Citation generation blocked for {url}. Reason: {response.prompt_feedback.block_reason}")
+             logger.warning(f"    Citation generation blocked for {url}. Reason: {response.prompt_feedback.block_reason}")
              return f"[APA generation blocked for URL: {url}]"
         else:
-             print(f"    WARN: Received empty or unexpected response for {url}. Full response: {response}")
+             logger.warning(f"    Received empty or unexpected response for {url}. Full response: {response}")
              return f"[APA generation failed for URL: {url}]"
 
     except Exception as e:
-        print(f"    ERROR: Failed to get APA citation for {url}: {e}")
+        logger.error(f"    Failed to get APA citation for {url}: {e}")
         return f"[APA generation error for URL: {url}]"
     finally:
         time.sleep(API_REQUEST_DELAY) # Prevent hitting rate limits
@@ -148,7 +148,7 @@ def reformat_markdown(input_filename, output_filename, api_key):
     # Example of a simple removal (use with caution):
     # sources_header_match = re.search(r'^# Sources\s*$|^(\*\*Sources:\*\*)\s*$', modified_content, re.MULTILINE | re.IGNORECASE)
     # if sources_header_match:
-    #      print("Found existing sources section, removing...")
+    #      logger.info("Found existing sources section, removing...")
     #      modified_content = modified_content[:sources_header_match.start()]
 
     # Remove trailing whitespace before adding the new section
@@ -170,9 +170,9 @@ def reformat_markdown(input_filename, output_filename, api_key):
     try:
         with open(output_filename, 'w', encoding='utf-8') as f_out:
             f_out.write(final_content)
-        print(f"Successfully reformatted document saved to: {output_filename}")
+        logger.info(f"Successfully reformatted document saved to: {output_filename}")
     except Exception as e:
-        print(f"Error writing output file: {e}")
+        logger.error(f"Error writing output file {output_filename}: {e}")
 
 
 # --- Main Execution ---
@@ -181,13 +181,17 @@ if __name__ == "__main__":
     parser.add_argument("input_file", help="Path to the input Markdown file.")
     parser.add_argument("output_file", help="Path to save the reformatted Markdown file.")
     parser.add_argument("-k", "--api-key", help="Gemini API Key (optional, uses GEMINI_API_KEY environment variable if not provided)", default=None)
-
+    parser.add_argument("-v", "--verbose", help="Increase output verbosity (INFO level)", action="store_true")
     args = parser.parse_args()
+
+    # Configure logging
+    log_level = logging.INFO if args.verbose else logging.WARNING
+    logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s') # Simpler format for CLI
 
     api_key = args.api_key or os.getenv("GEMINI_API_KEY")
 
     if not api_key:
-        print("Error: Gemini API Key not found.")
-        print("Please provide it using the --api-key argument or set the GEMINI_API_KEY environment variable.")
+        logger.error("Gemini API Key not found.")
+        logger.error("Please provide it using the --api-key argument or set the GEMINI_API_KEY environment variable.")
     else:
         reformat_markdown(args.input_file, args.output_file, api_key)
