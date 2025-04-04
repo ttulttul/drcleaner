@@ -80,8 +80,16 @@ def get_apa_citation(api_key, url):
                 logger.warning(f"    Unexpected response format from Perplexity API for {url}")
                 return f"[APA generation failed for URL: {url}]"
         else:
-            logger.warning(f"    Perplexity API returned status code {response.status_code} for {url}")
-            return f"[APA generation failed for URL: {url} - API error {response.status_code}]"
+            error_message = f"Perplexity API returned status code {response.status_code}"
+            try:
+                error_details = response.json()
+                if 'error' in error_details:
+                    error_message += f": {error_details['error']}"
+            except:
+                pass
+            
+            logger.warning(f"    {error_message} for {url}")
+            return f"[APA generation failed for URL: {url} - {error_message}]"
 
     except Exception as e:
         logger.error(f"    Failed to get APA citation for {url}: {e}")
@@ -128,7 +136,7 @@ def reformat_markdown(input_filename, output_filename, api_key):
         if url not in unique_sources:
             unique_sources[url] = {'apa': None, 'number': None}
 
-    logger.info(f"Found {len(unique_sources)} unique URLs in {input_filename}. Generating APA citations via Gemini API...")
+    logger.info(f"Found {len(unique_sources)} unique URLs in {input_filename}. Generating APA citations via Perplexity API...")
 
     # Assign numbers and generate APA citations for unique URLs
     current_number = 1
@@ -138,8 +146,8 @@ def reformat_markdown(input_filename, output_filename, api_key):
         unique_sources[url]['apa'] = apa_citation if apa_citation else f"[Failed to generate APA for {url}]"
         current_number += 1
 
-    logger.info("APA citation generation complete for {input_filename}.")
-    logger.info("Replacing inline references in {input_filename}...")
+    logger.info(f"APA citation generation complete for {input_filename}.")
+    logger.info(f"Replacing inline references in {input_filename}...")
 
     # Replace inline references with numbered links (iterate backwards!)
     modified_content = content
@@ -155,7 +163,7 @@ def reformat_markdown(input_filename, output_filename, api_key):
             # This case should theoretically not happen with the current logic
             logger.warning(f"URL '{url}' from match not found in unique_sources map during replacement in {input_filename}.")
 
-    logger.info("Building final Sources section for {input_filename}...")
+    logger.info(f"Building final Sources section for {input_filename}...")
 
     # --- Handle potential pre-existing "Sources:" section ---
     # Basic removal: find the last occurrence of a line starting with "# Sources" or "**Sources:**"
