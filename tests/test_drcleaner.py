@@ -50,22 +50,11 @@ class TestDRCleaner(unittest.TestCase):
             else:
                 self.assertEqual(len(matches), 0, f"Should not match: {text}")
     
-    @patch('requests.post')
-    def test_get_apa_citation(self, mock_post):
+    @patch('drcleaner._call_perplexity_api')
+    def test_get_apa_citation(self, mock_call_api):
         """Test the get_apa_citation function with a mocked API response."""
-        # Mock the API response
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'choices': [
-                {
-                    'message': {
-                        'content': 'Author, A. (2023). Test Title. Example.com. https://example.com'
-                    }
-                }
-            ]
-        }
-        mock_post.return_value = mock_response
+        # Mock the _call_perplexity_api function
+        mock_call_api.return_value = 'Author, A. (2023). Test Title. Example.com. https://example.com'
         
         # Call the function
         result = drcleaner.get_apa_citation(self.test_api_key, "https://example.com")
@@ -73,12 +62,12 @@ class TestDRCleaner(unittest.TestCase):
         # Verify the result
         self.assertEqual(result, 'Author, A. (2023). Test Title. Example.com. https://example.com')
         
-        # Verify the API was called with the correct parameters
-        mock_post.assert_called_once()
-        args, kwargs = mock_post.call_args
-        self.assertEqual(args[0], "https://api.perplexity.ai/chat/completions")
-        self.assertEqual(kwargs['headers']['Authorization'], f"Bearer {self.test_api_key}")
-        self.assertIn("https://example.com", kwargs['json']['messages'][1]['content'])
+        # Verify the API function was called with the correct parameters
+        mock_call_api.assert_called_once()
+        args, kwargs = mock_call_api.call_args
+        self.assertEqual(args[0], self.test_api_key)
+        self.assertEqual(args[1], "https://example.com")
+        self.assertIn("https://example.com", args[2])
     
     @patch('drcleaner.get_apa_citation')
     def test_reformat_markdown(self, mock_get_apa):
