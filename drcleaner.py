@@ -3,6 +3,7 @@ import google.generativeai as genai
 import os
 import argparse
 import time
+import logging
 from collections import OrderedDict
 
 # --- Configuration ---
@@ -10,6 +11,9 @@ GEMINI_MODEL_NAME = "gemini-1.5-pro-latest"  # Or specific model like "gemini-2.
 API_REQUEST_DELAY = 1  # Seconds to wait between API calls (adjust if needed for rate limits)
 APA_PROMPT_TEMPLATE = "Visit this web link and generate an appropriate APA style reference line for it in markdown format: {}"
 SOURCE_PATTERN = re.compile(r'\(\[([^\]]+)\]\(([^\)]+)\)\)') # Pattern: ([Display Text](URL))
+
+# --- Logger Setup ---
+logger = logging.getLogger(__name__)
 
 # --- Helper Functions ---
 
@@ -19,7 +23,7 @@ def configure_gemini(api_key):
         genai.configure(api_key=api_key)
         return genai.GenerativeModel(GEMINI_MODEL_NAME)
     except Exception as e:
-        print(f"Error configuring Gemini API: {e}")
+        logger.error(f"Error configuring Gemini API: {e}")
         return None
 
 def get_apa_citation(model, url):
@@ -27,7 +31,7 @@ def get_apa_citation(model, url):
     if not model:
         return "[Gemini API not configured]"
     prompt = APA_PROMPT_TEMPLATE.format(url)
-    print(f"  Generating APA for: {url[:60]}...")
+    logger.info(f"  Generating APA for: {url[:60]}...")
     try:
         # Configuration for web page access (if needed by the model/API)
         # Note: As of late 2023/early 2024, direct web browsing might be implicit
@@ -71,34 +75,34 @@ def get_apa_citation(model, url):
 def reformat_markdown(input_filename, output_filename, api_key):
     """Reads markdown, extracts sources, generates citations, and reformats."""
 
-    print(f"Processing {input_filename}...")
+    logger.info(f"Processing {input_filename}...")
 
     model = configure_gemini(api_key)
     if not model:
-        print("Exiting due to Gemini API configuration error.")
+        logger.error("Exiting due to Gemini API configuration error.")
         return
 
     try:
         with open(input_filename, 'r', encoding='utf-8') as f_in:
             content = f_in.read()
     except FileNotFoundError:
-        print(f"Error: Input file not found: {input_filename}")
+        logger.error(f"Input file not found: {input_filename}")
         return
     except Exception as e:
-        print(f"Error reading input file: {e}")
+        logger.error(f"Error reading input file {input_filename}: {e}")
         return
 
     # Find all source references: ([Text](URL))
     matches = list(SOURCE_PATTERN.finditer(content))
     if not matches:
-        print("No source patterns found in the document.")
+        logger.info(f"No source patterns found in {input_filename}.")
         # Optionally write the original content if no changes needed
         # with open(output_filename, 'w', encoding='utf-8') as f_out:
         #     f_out.write(content)
-        # print(f"Original content written to {output_filename} as no sources were found.")
+        # logger.info(f"Original content written to {output_filename} as no sources were found.")
         return # Or proceed to just write the original content
 
-    print(f"Found {len(matches)} potential source references.")
+    logger.info(f"Found {len(matches)} potential source references in {input_filename}.")
 
     # Store unique URLs and their first appearance order
     unique_sources = OrderedDict()
@@ -107,7 +111,7 @@ def reformat_markdown(input_filename, output_filename, api_key):
         if url not in unique_sources:
             unique_sources[url] = {'apa': None, 'number': None}
 
-    print(f"Found {len(unique_sources)} unique URLs. Generating APA citations via Gemini API...")
+    logger.info(f"Found {len(unique_sources)} unique URLs in {input_filename}. Generating APA citations via Gemini API...")
 
     # Assign numbers and generate APA citations for unique URLs
     current_number = 1
@@ -117,8 +121,8 @@ def reformat_markdown(input_filename, output_filename, api_key):
         unique_sources[url]['apa'] = apa_citation if apa_citation else f"[Failed to generate APA for {url}]"
         current_number += 1
 
-    print("APA citation generation complete.")
-    print("Replacing inline references...")
+    logger.info("APA citation generation complete for {input_filename}.")
+    logger.info("Replacing inline references in {input_filename}...")
 
     # Replace inline references with numbered links (iterate backwards!)
     modified_content = content
@@ -132,9 +136,9 @@ def reformat_markdown(input_filename, output_filename, api_key):
             modified_content = modified_content[:start] + citation_link + modified_content[end:]
         else:
             # This case should theoretically not happen with the current logic
-            print(f"Warning: URL '{url}' from match not found in unique_sources map during replacement.")
+            logger.warning(f"URL '{url}' from match not found in unique_sources map during replacement in {input_filename}.")
 
-    print("Building final Sources section...")
+    logger.info("Building final Sources section for {input_filename}...")
 
     # --- Handle potential pre-existing "Sources:" section ---
     # Basic removal: find the last occurrence of a line starting with "# Sources" or "**Sources:**"
