@@ -48,9 +48,12 @@ This paragraph references the first source again ([Example Source](https://examp
         # Get API key from environment
         api_key = os.environ.get('PERPLEXITY_API_KEY')
         
+        # Get the absolute path to the script
+        script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'drcleaner.py'))
+        
         # Run the script as a subprocess
         result = subprocess.run(
-            [sys.executable, '../drcleaner.py', self.input_file, self.output_file, '-k', api_key],
+            [sys.executable, script_path, self.input_file, self.output_file, '-k', api_key],
             capture_output=True,
             text=True
         )
